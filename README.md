@@ -29,6 +29,8 @@ Recurring tasks are not draggable, since setting a fixed date would drop the rec
 ## Other features
 
 - Sidebar groups unscheduled tasks by project, then section; both collapse (state kept in localStorage).
+- Drag the sidebar's right edge to resize it (double-click resets). Hide it with « or `[`, show it again with »
+  in the toolbar or `[`. Width and hidden state are kept in localStorage.
 - Toolbar toggles for completed tasks (placed on their completion date), weekends, and which projects
   appear in the calendar. Toggle state lives in the URL.
 

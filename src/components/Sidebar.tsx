@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import type { Project, Section, Task } from "../server/todoist";
 import { colorHex, orderedProjects } from "../lib";
 import { Droppable } from "./Droppable";
@@ -8,7 +14,93 @@ type Props = {
   tasks: Task[];
   projects: Map<string, Project>;
   sections: Section[];
+  onResize: (width: number, done?: boolean) => void;
+  onCollapse: () => void;
 };
+
+const LAYOUT_KEY = "sidebar-layout";
+export const SIDEBAR_DEFAULT_WIDTH = 280;
+const MIN_WIDTH = 200;
+const MAX_WIDTH = 640;
+const clampWidth = (w: number) =>
+  Math.round(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, w)));
+
+type Layout = { width: number; collapsed: boolean };
+
+function loadLayout(): Layout {
+  try {
+    const saved = JSON.parse(localStorage.getItem(LAYOUT_KEY) ?? "{}");
+    return {
+      width: clampWidth(Number(saved.width) || SIDEBAR_DEFAULT_WIDTH),
+      collapsed: saved.collapsed === true,
+    };
+  } catch {
+    return { width: SIDEBAR_DEFAULT_WIDTH, collapsed: false };
+  }
+}
+
+function saveLayout(layout: Layout) {
+  try {
+    localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout));
+  } catch {}
+}
+
+export function useSidebarLayout() {
+  const [layout, setLayout] = useState(loadLayout);
+
+  const resize = useCallback((width: number, done = false) => {
+    setLayout((prev) => {
+      const next = { ...prev, width: clampWidth(width) };
+      if (done) saveLayout(next);
+      return next;
+    });
+  }, []);
+
+  const toggle = useCallback(() => {
+    setLayout((prev) => {
+      const next = { ...prev, collapsed: !prev.collapsed };
+      saveLayout(next);
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "[" || e.metaKey || e.ctrlKey || e.altKey) return;
+      const el = e.target as HTMLElement | null;
+      if (el?.closest("input, textarea, select, [contenteditable='true']"))
+        return;
+      e.preventDefault();
+      toggle();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [toggle]);
+
+  return { ...layout, resize, toggle };
+}
+
+function startResize(
+  e: ReactPointerEvent<HTMLDivElement>,
+  onResize: Props["onResize"],
+) {
+  if (e.button !== 0) return;
+  e.preventDefault();
+  const left = e.currentTarget.parentElement!.getBoundingClientRect().left;
+  const widthAt = (ev: PointerEvent) => ev.clientX - left;
+  document.body.classList.add("is-resizing");
+  const move = (ev: PointerEvent) => onResize(widthAt(ev));
+  const up = (ev: PointerEvent) => {
+    onResize(widthAt(ev), true);
+    document.body.classList.remove("is-resizing");
+    window.removeEventListener("pointermove", move);
+    window.removeEventListener("pointerup", up);
+    window.removeEventListener("pointercancel", up);
+  };
+  window.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", up);
+  window.addEventListener("pointercancel", up);
+}
 
 type Group = {
   project: Project | undefined;
@@ -74,7 +166,13 @@ function buildGroups(
 
 const COLLAPSED_KEY = "sidebar-collapsed";
 
-export function Sidebar({ tasks, projects, sections }: Props) {
+export function Sidebar({
+  tasks,
+  projects,
+  sections,
+  onResize,
+  onCollapse,
+}: Props) {
   const [q, setQ] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   useEffect(() => {
@@ -146,6 +244,14 @@ export function Sidebar({ tasks, projects, sections }: Props) {
             {allSectionsCollapsed ? "Expand sections" : "Collapse sections"}
           </button>
         )}
+        <button
+          className="icon-button"
+          onClick={onCollapse}
+          aria-label="Hide sidebar"
+          title="Hide sidebar ([)"
+        >
+          «
+        </button>
       </div>
       <input
         className="sidebar__search"
@@ -204,6 +310,15 @@ export function Sidebar({ tasks, projects, sections }: Props) {
           <p className="empty">Drop here to clear a due date.</p>
         )}
       </Droppable>
+      <div
+        className="sidebar__resize"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize sidebar"
+        title="Drag to resize, double-click to reset"
+        onPointerDown={(e) => startResize(e, onResize)}
+        onDoubleClick={() => onResize(SIDEBAR_DEFAULT_WIDTH, true)}
+      />
     </aside>
   );
 }

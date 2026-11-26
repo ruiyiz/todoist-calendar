@@ -12,7 +12,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { addMonths, addWeeks, format, isWeekend, parseISO } from "date-fns";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import { z } from "zod";
 import type { Task } from "../server/todoist";
 import {
@@ -35,7 +35,7 @@ import {
 } from "../data";
 import { MonthView } from "../components/MonthView";
 import { WeekView } from "../components/WeekView";
-import { Sidebar } from "../components/Sidebar";
+import { Sidebar, useSidebarLayout } from "../components/Sidebar";
 import { TaskCard } from "../components/TaskCard";
 import { ProjectFilter } from "../components/ProjectFilter";
 
@@ -112,6 +112,7 @@ function CalendarPage() {
   const completedQ = useCompleted(start, end, completed);
   const reschedule = useReschedule();
   const [active, setActive] = useState<Task | null>(null);
+  const sidebar = useSidebarLayout();
 
   const projects = useMemo(
     () => new Map((projectsQ.data ?? []).map((p) => [p.id, p])),
@@ -186,15 +187,32 @@ function CalendarPage() {
       onDragEnd={onDragEnd}
       onDragCancel={() => setActive(null)}
     >
-      <div className="app">
-        <Sidebar
-          tasks={tasksQ.data?.unscheduled ?? []}
-          projects={projects}
-          sections={sectionsQ.data ?? []}
-        />
+      <div
+        className={sidebar.collapsed ? "app app--collapsed" : "app"}
+        style={{ "--sidebar-w": `${sidebar.width}px` } as CSSProperties}
+      >
+        {!sidebar.collapsed && (
+          <Sidebar
+            tasks={tasksQ.data?.unscheduled ?? []}
+            projects={projects}
+            sections={sectionsQ.data ?? []}
+            onResize={sidebar.resize}
+            onCollapse={sidebar.toggle}
+          />
+        )}
         <main className="main">
           <header className="toolbar">
             <div className="toolbar__nav">
+              {sidebar.collapsed && (
+                <button
+                  className="icon-button"
+                  onClick={sidebar.toggle}
+                  aria-label="Show sidebar"
+                  title="Show unscheduled sidebar ([)"
+                >
+                  »
+                </button>
+              )}
               <button onClick={() => go({ date: ymd(new Date()) })}>
                 Today
               </button>
