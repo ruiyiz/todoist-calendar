@@ -2,6 +2,7 @@
   "name": "todoist-calendar",
   "type": "module",
   "private": true,
+  "license": "MIT",
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",

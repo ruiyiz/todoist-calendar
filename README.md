@@ -111,3 +111,7 @@ tailscale serve --bg --https 8444 3000
 
 `vite.config.ts` already allows `*.ts.net` hosts. The app has no login of its own, and anyone who can
 reach it acts with your Todoist token, so never expose it on a public network.
+
+## License
+
+[MIT](LICENSE)
